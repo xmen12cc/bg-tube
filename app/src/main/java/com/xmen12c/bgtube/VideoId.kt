@@ -38,8 +38,10 @@ object VideoId {
             host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com") -> {
                 val segments = uri.pathSegments
                 when {
-                    uri.path?.substringBefore('/') == "watch" -> uri.getQueryParameter("v")
-                    segments.size >= 2 && segments[0] in setOf("shorts", "embed", "live", "v") -> segments[1]
+                    segments.isEmpty() -> null
+                    segments.first() == "watch" ->
+                        if (segments.size >= 2) segments[1] else uri.getQueryParameter("v")
+                    segments.size >= 2 && segments.first() in setOf("shorts", "embed", "live", "v") -> segments[1]
                     else -> null
                 }
             }
