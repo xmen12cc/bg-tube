@@ -215,9 +215,11 @@ class PlaybackService : Service() {
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
-            // YouTube refuses embed playback (error 152) for WebView user agents;
-            // drop the "; wv" token so the player sees regular Chrome on Android.
-            userAgentString = WebSettings.getDefaultUserAgent(applicationContext).replace("; wv", "")
+            // YouTube refuses embed playback (error 152) for WebView / mobile user
+            // agents; present as desktop Chrome so the desktop embed path is served.
+            userAgentString =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
@@ -233,65 +235,63 @@ class PlaybackService : Service() {
             ),
             "BgTube",
         )
-        web.webViewClient = WebViewClient()
+        web.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String?) {
+                view.evaluateJavascript(controlsScript(), null)
+            }
+        }
         web.webChromeClient = WebChromeClient()
         webView = web
     }
 
     private fun loadInWebView(id: String) {
-        webView?.loadDataWithBaseURL("https://www.youtube.com/", playerHtml(id), "text/html", "utf-8", null)
+        // Play the real watch page: the embed player refuses WebView contexts
+        // (error 152), but the page's own <video> element plays fine and can be
+        // driven from JS since it is the top-level same-origin document.
+        webView?.loadUrl("https://www.youtube.com/watch?v=$id")
     }
+
+    /**
+     * Injected on every page load: wires video events to the JS bridge, kicks off
+     * playback once (until the page itself starts it), and exposes play/pause.
+     */
+    private fun controlsScript(): String = """
+        (function() {
+          if (window.__bgtube) { window.__bgtubeRescan && window.__bgtubeRescan(); return; }
+          function vid() { return document.querySelector('video'); }
+          function title() { return (document.title || '').replace(/ - YouTube\s*${'$'}/, ''); }
+          function report(state) { if (window.BgTube) BgTube.onState(state, title()); }
+          function hook(v) {
+            if (v.__bgtubeHooked) return;
+            v.__bgtubeHooked = true;
+            v.addEventListener('play',  function() { v.__everPlayed = true; report(1); });
+            v.addEventListener('pause', function() { report(2); });
+            v.addEventListener('ended', function() { report(0); });
+          }
+          function scan() {
+            var v = vid();
+            if (!v) return;
+            hook(v);
+            if (v.paused && !v.ended && !v.__everPlayed) { v.play().catch(function() {}); }
+            report(v.ended ? 0 : (v.paused ? 2 : 1));
+          }
+          window.__bgtubeRescan = scan;
+          setInterval(scan, 2000);
+          window.bgtube = {
+            play:   function() { var v = vid(); if (v) v.play().catch(function() {}); },
+            pause:  function() { var v = vid(); if (v) v.pause(); },
+            toggle: function() {
+              var v = vid(); if (!v) return;
+              if (v.paused) { v.play().catch(function() {}); } else { v.pause(); }
+            }
+          };
+        })();
+    """.trimIndent()
 
     private fun postJs(function: String) {
         mainHandler.post {
             webView?.evaluateJavascript("window.bgtube && window.bgtube.$function()", null)
         }
-    }
-
-    private fun playerHtml(videoId: String): String {
-        // videoId is validated as an 11-char [A-Za-z0-9_-] id before it gets here.
-        return """
-            <!DOCTYPE html><html><head>
-            <meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>
-              html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
-              #player{width:100%;height:100%;border:0}
-            </style></head><body>
-            <div id="player"></div>
-            <script>
-              var tag = document.createElement('script');
-              tag.src = 'https://www.youtube.com/iframe_api';
-              document.head.appendChild(tag);
-              var player = null;
-              window.onYouTubeIframeAPIReady = function() {
-                player = new YT.Player('player', {
-                  width: '100%', height: '100%', videoId: '$videoId',
-                  playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
-                  events: {
-                    onReady: function(e) { e.target.playVideo(); },
-                    onStateChange: function() { report(); },
-                    onError: function(code) { if (window.BgTube) BgTube.onError(code); }
-                  }
-                });
-              };
-              function report() {
-                if (!player || !player.getPlayerState) return;
-                var t = '';
-                try { t = player.getVideoData().title || ''; } catch (e) {}
-                if (window.BgTube) BgTube.onState(player.getPlayerState(), t);
-              }
-              setInterval(report, 2000);
-              window.bgtube = {
-                play:   function() { player && player.playVideo && player.playVideo(); },
-                pause:  function() { player && player.pauseVideo && player.pauseVideo(); },
-                toggle: function() {
-                  if (!player) return;
-                  var s = player.getPlayerState();
-                  if (s === 1 || s === 3) { player.pauseVideo(); } else { player.playVideo(); }
-                }
-              };
-            </script></body></html>
-        """.trimIndent()
     }
 
     // ------------------------------------------------------------------ player events
