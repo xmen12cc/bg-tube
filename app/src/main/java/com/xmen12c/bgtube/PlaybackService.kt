@@ -2,6 +2,7 @@ package com.xmen12c.bgtube
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.Service
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -114,7 +115,9 @@ class PlaybackService : Service() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() = postJs("play")
                 override fun onPause() = postJs("pause")
-                override fun onStop() = mainHandler.post { stopPlayback() }
+                override fun onStop() {
+                    mainHandler.post { stopPlayback() }
+                }
             })
             isActive = true
         }
