@@ -97,6 +97,7 @@ class PlaybackService : Service() {
     private var playing = false
     private var foregroundActive = false
     private var thumbnail: Bitmap? = null
+    private var errorNotice: String? = null
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
         when (change) {
@@ -161,6 +162,7 @@ class PlaybackService : Service() {
         title = null
         thumbnail = null
         playing = false
+        errorNotice = null
 
         ensureWebView()
         PlayerHub.update(PlayerHub.State(videoId = id))
@@ -213,6 +215,9 @@ class PlaybackService : Service() {
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
+            // YouTube refuses embed playback (error 152) for WebView user agents;
+            // drop the "; wv" token so the player sees regular Chrome on Android.
+            userAgentString = WebSettings.getDefaultUserAgent(applicationContext).replace("; wv", "")
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
@@ -315,13 +320,16 @@ class PlaybackService : Service() {
 
     private fun onPlayerError() {
         playing = false
-        publishState(notice = getString(R.string.status_error))
+        errorNotice = getString(R.string.status_error)
+        publishState()
         updateMediaSession()
         if (foregroundActive) notifyManager().notify(NOTIF_ID, currentNotification())
     }
 
-    private fun publishState(notice: String? = null) {
-        PlayerHub.update(PlayerHub.State(videoId = videoId, title = title, isPlaying = playing, notice = notice))
+    private fun publishState() {
+        PlayerHub.update(
+            PlayerHub.State(videoId = videoId, title = title, isPlaying = playing, notice = errorNotice)
+        )
     }
 
     // ------------------------------------------------------------------ media session + notification
