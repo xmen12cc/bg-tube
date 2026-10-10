@@ -46,6 +46,5 @@ jobs:
           for i in 1 2 3; do
             gh release create latest BgTube-debug.apk \
               --title "Latest build" \
-              --notes "Automated debug build of commit ${GITHUB_SHA::7}. Download BgTube-debug.apk and sideload it on your phone." \
-              --prerelease && break || sleep 10
+              --notes "Automated debug build of commit ${GITHUB_SHA::7}. Download BgTube-debug.apk and sideload it on your phone." && break || sleep 10
           done
