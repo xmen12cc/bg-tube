@@ -393,13 +393,16 @@ class PlaybackService : Service() {
             .build()
     }
 
-    private fun servicePendingIntent(action: String): PendingIntent =
-        PendingIntent.getForegroundService(
-            this,
-            action.hashCode(),
-            Intent(this, PlaybackService::class.java).setAction(action),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+    private fun servicePendingIntent(action: String): PendingIntent {
+        val intent = Intent(this, PlaybackService::class.java).setAction(action)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(this, action.hashCode(), intent, flags)
+        } else {
+            @Suppress("DEPRECATION")
+            PendingIntent.getService(this, action.hashCode(), intent, flags)
+        }
+    }
 
     private fun createChannel() {
         val channel = NotificationChannel(
