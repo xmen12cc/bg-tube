@@ -17,9 +17,9 @@ android {
 
     signingConfigs {
         getByName("debug") {
-            // CI caches this file; explicit config forces AGP to sign with exactly
-            // this keystore instead of regenerating one.
-            storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
+            // Repo-local debug keystore (password "android", no secret) so every
+            // build, local or CI, signs updates with the same key.
+            storeFile = rootProject.file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
