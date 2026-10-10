@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BgTube</string>
+    <string name="app_tagline">Background player for YouTube</string>
+    <string name="hint_link">Paste a YouTube link</string>
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_stop">Stop</string>
+    <string name="status_idle">Paste a link, press Play, then lock your screen — the audio keeps going.</string>
+    <string name="status_loading">Loading…</string>
+    <string name="status_playing">Playing • %1$s</string>
+    <string name="status_paused">Paused • %1$s</string>
+    <string name="status_error">Can\'t play this video — embedding may be disabled for it.</string>
+    <string name="toast_bad_link">That doesn\'t look like a YouTube link</string>
+    <string name="recents_label">Recently played</string>
+    <string name="notif_channel">Playback</string>
+</resources>

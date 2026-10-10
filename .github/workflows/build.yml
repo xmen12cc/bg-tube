@@ -1,0 +1,51 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-main
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk BgTube-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BgTube-debug-apk
+          path: BgTube-debug.apk
+
+      - name: Publish to "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          sleep 5
+          for i in 1 2 3; do
+            gh release create latest BgTube-debug.apk \
+              --title "Latest build" \
+              --notes "Automated debug build of commit ${GITHUB_SHA::7}. Download BgTube-debug.apk and sideload it on your phone." \
+              --prerelease && break || sleep 10
+          done
