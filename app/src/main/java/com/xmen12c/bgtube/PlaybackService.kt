@@ -48,11 +48,14 @@ class PlaybackService : Service() {
         const val ACTION_PLAY = "com.xmen12c.bgtube.action.PLAY"
         const val ACTION_TOGGLE = "com.xmen12c.bgtube.action.TOGGLE"
         const val ACTION_STOP = "com.xmen12c.bgtube.action.STOP"
+        const val ACTION_TOGGLE_LOOP = "com.xmen12c.bgtube.action.TOGGLE_LOOP"
         const val EXTRA_VIDEO_ID = "video_id"
 
         private const val CHANNEL_ID = "playback"
         private const val NOTIF_ID = 42
         private const val WAKELOCK_TIMEOUT_MS = 12 * 60 * 60 * 1000L
+        private const val SETTINGS_PREFS = "settings"
+        private const val KEY_LOOP = "loop_on"
 
         @Volatile
         var instance: PlaybackService? = null
@@ -82,6 +85,10 @@ class PlaybackService : Service() {
         fun stopFromUi() {
             instance?.stopPlayback()
         }
+
+        fun toggleLoopFromUi() {
+            instance?.toggleLoop()
+        }
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -98,6 +105,7 @@ class PlaybackService : Service() {
     private var foregroundActive = false
     private var thumbnail: Bitmap? = null
     private var errorNotice: String? = null
+    private var looping = false
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
         when (change) {
@@ -110,6 +118,7 @@ class PlaybackService : Service() {
         super.onCreate()
         instance = this
         createChannel()
+        looping = getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).getBoolean(KEY_LOOP, false)
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BgTube::playback")
         mediaSession = MediaSessionCompat(this, "BgTube").apply {
@@ -138,6 +147,7 @@ class PlaybackService : Service() {
                 if (id != null && VideoId.isValid(id)) playVideo(id) else stopPlayback()
             }
             ACTION_TOGGLE -> postJs("toggle")
+            ACTION_TOGGLE_LOOP -> toggleLoop()
             ACTION_STOP -> stopPlayback()
             else -> if (videoId == null) stopPlayback()
         }
@@ -165,7 +175,7 @@ class PlaybackService : Service() {
         errorNotice = null
 
         ensureWebView()
-        PlayerHub.update(PlayerHub.State(videoId = id))
+        PlayerHub.update(PlayerHub.State(videoId = id, isLooping = looping))
         startForegroundCompat(buildNotification(getString(R.string.status_loading), ongoing = true))
         foregroundActive = true
         acquireWakeLock()
@@ -237,7 +247,7 @@ class PlaybackService : Service() {
         )
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
-                view.evaluateJavascript(controlsScript(), null)
+                view.evaluateJavascript(controlsScript(looping), null)
             }
         }
         web.webChromeClient = WebChromeClient()
@@ -253,25 +263,37 @@ class PlaybackService : Service() {
 
     /**
      * Injected on every page load: wires video events to the JS bridge, kicks off
-     * playback once (until the page itself starts it), and exposes play/pause.
+     * playback once (until the page itself starts it), keeps the loop flag applied
+     * to the video element, and exposes play/pause/loop controls.
      */
-    private fun controlsScript(): String = """
+    private fun controlsScript(initialLoop: Boolean): String = """
         (function() {
           if (window.__bgtube) { window.__bgtubeRescan && window.__bgtubeRescan(); return; }
+          window.__bgtubeLoop = $initialLoop;
           function vid() { return document.querySelector('video'); }
           function title() { return (document.title || '').replace(/ - YouTube\s*${'$'}/, ''); }
           function report(state) { if (window.BgTube) BgTube.onState(state, title()); }
           function hook(v) {
             if (v.__bgtubeHooked) return;
             v.__bgtubeHooked = true;
+            v.loop = !!window.__bgtubeLoop;
             v.addEventListener('play',  function() { v.__everPlayed = true; report(1); });
             v.addEventListener('pause', function() { report(2); });
-            v.addEventListener('ended', function() { report(0); });
+            v.addEventListener('ended', function() {
+              if (window.__bgtubeLoop) {
+                v.currentTime = 0;
+                v.play().catch(function() {});
+                report(1);
+                return;
+              }
+              report(0);
+            });
           }
           function scan() {
             var v = vid();
             if (!v) return;
             hook(v);
+            v.loop = !!window.__bgtubeLoop;
             if (v.paused && !v.ended && !v.__everPlayed) { v.play().catch(function() {}); }
             report(v.ended ? 0 : (v.paused ? 2 : 1));
           }
@@ -283,10 +305,23 @@ class PlaybackService : Service() {
             toggle: function() {
               var v = vid(); if (!v) return;
               if (v.paused) { v.play().catch(function() {}); } else { v.pause(); }
+            },
+            setLoop: function(on) {
+              window.__bgtubeLoop = !!on;
+              var v = vid(); if (v) v.loop = !!on;
             }
           };
         })();
     """.trimIndent()
+
+    private fun toggleLoop() {
+        looping = !looping
+        getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE)
+            .edit().putBoolean(KEY_LOOP, looping).apply()
+        postJs("setLoop($looping)")
+        publishState()
+        if (foregroundActive) notifyManager().notify(NOTIF_ID, currentNotification())
+    }
 
     private fun postJs(function: String) {
         mainHandler.post {
@@ -301,6 +336,13 @@ class PlaybackService : Service() {
             1 -> playing = true              // PLAYING
             2 -> playing = false             // PAUSED
             0 -> {                            // ENDED
+                if (looping) {
+                    // The video element's loop flag normally restarts it before
+                    // this ever fires; treat a stray ended event as still playing.
+                    playing = true
+                    publishState()
+                    return
+                }
                 playing = false
                 publishState()
                 stopPlayback()
@@ -328,7 +370,10 @@ class PlaybackService : Service() {
 
     private fun publishState() {
         PlayerHub.update(
-            PlayerHub.State(videoId = videoId, title = title, isPlaying = playing, notice = errorNotice)
+            PlayerHub.State(
+                videoId = videoId, title = title, isPlaying = playing,
+                notice = errorNotice, isLooping = looping,
+            )
         )
     }
 
@@ -383,7 +428,7 @@ class PlaybackService : Service() {
 
         val style = MediaStyle()
             .setMediaSession(mediaSession?.sessionToken)
-            .setShowActionsInCompactView(0, 1)
+            .setShowActionsInCompactView(0, 1, 2)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_play)
@@ -396,6 +441,11 @@ class PlaybackService : Service() {
             .setOngoing(ongoing)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(toggleIcon, toggleLabel, togglePending)
+            .addAction(
+                R.drawable.ic_repeat,
+                getString(if (looping) R.string.action_loop_on else R.string.action_loop_off),
+                servicePendingIntent(ACTION_TOGGLE_LOOP),
+            )
             .addAction(R.drawable.ic_stop, getString(R.string.action_stop), stopPending)
             .setStyle(style)
             .build()

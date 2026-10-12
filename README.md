@@ -18,6 +18,7 @@ Uses the official YouTube embed player inside a WebView, kept alive by a foregro
 - Paste a YouTube link (`watch?v=`, `youtu.be`, `Shorts`, `live`, music.youtube all work) and press **Play**.
 - Or in the YouTube app: **Share → BgTube** — it starts playing immediately.
 - Controls: in-app play/pause/stop, the media notification, and the lock screen.
+- **Repeat loop**: tap the 🔁 button (or the Loop action on the notification) to repeat the current video endlessly; the preference is remembered. Tap again to turn it off.
 - Recently played videos appear as chips — tap to replay.
 
 ## How it works

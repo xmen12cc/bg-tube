@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linkInput: TextInputEditText
     private lateinit var playButton: MaterialButton
     private lateinit var toggleButton: MaterialButton
+    private lateinit var repeatButton: MaterialButton
     private lateinit var stopButton: MaterialButton
     private lateinit var statusText: TextView
     private lateinit var recentsLabel: TextView
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         linkInput = findViewById(R.id.link_input)
         playButton = findViewById(R.id.play_button)
         toggleButton = findViewById(R.id.toggle_button)
+        repeatButton = findViewById(R.id.repeat_button)
         stopButton = findViewById(R.id.stop_button)
         statusText = findViewById(R.id.status_text)
         recentsLabel = findViewById(R.id.recents_label)
@@ -62,6 +64,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         toggleButton.setOnClickListener { PlaybackService.toggle() }
+        repeatButton.setOnClickListener { PlaybackService.toggleLoopFromUi() }
         stopButton.setOnClickListener { PlaybackService.stopFromUi() }
 
         renderRecents()
@@ -120,7 +123,18 @@ class MainActivity : AppCompatActivity() {
         val has = state.videoId != null
         videoContainer.visibility = if (has) View.VISIBLE else View.GONE
         toggleButton.visibility = if (has) View.VISIBLE else View.GONE
+        repeatButton.visibility = if (has) View.VISIBLE else View.GONE
         stopButton.isEnabled = has
+        if (state.isLooping) {
+            repeatButton.setIconTintResource(R.color.primary)
+            repeatButton.setStrokeColorResource(R.color.primary)
+        } else {
+            repeatButton.setIconTintResource(R.color.text_secondary)
+            repeatButton.setStrokeColorResource(R.color.outline)
+        }
+        repeatButton.contentDescription = getString(
+            if (state.isLooping) R.string.action_loop_on else R.string.action_loop_off
+        )
         statusText.text = when {
             state.notice != null -> state.notice
             !has -> getString(R.string.status_idle)

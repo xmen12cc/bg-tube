@@ -11,6 +11,7 @@ object PlayerHub {
         val title: String? = null,
         val isPlaying: Boolean = false,
         val notice: String? = null,
+        val isLooping: Boolean = false,
     )
 
     @Volatile

@@ -6,6 +6,9 @@
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>
     <string name="action_stop">Stop</string>
+    <string name="action_loop_on">Loop on</string>
+    <string name="action_loop_off">Loop off</string>
+    <string name="desc_loop">Repeat this video</string>
     <string name="status_idle">Paste a link, press Play, then lock your screen — the audio keeps going.</string>
     <string name="status_loading">Loading…</string>
     <string name="status_playing">Playing • %1$s</string>

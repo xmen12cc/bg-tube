@@ -96,6 +96,17 @@
             app:icon="@drawable/ic_pause" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/repeat_button"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:contentDescription="@string/desc_loop"
+            android:visibility="gone"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_repeat" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/stop_button"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="wrap_content"
