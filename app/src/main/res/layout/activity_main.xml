@@ -88,33 +88,48 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/toggle_button"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="10dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             android:visibility="gone"
             app:cornerRadius="18dp"
-            app:icon="@drawable/ic_pause" />
+            app:icon="@drawable/ic_pause"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="20dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/repeat_button"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="10dp"
             android:contentDescription="@string/desc_loop"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             android:visibility="gone"
             app:cornerRadius="18dp"
-            app:icon="@drawable/ic_repeat" />
+            app:icon="@drawable/ic_repeat"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="20dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/stop_button"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="10dp"
             android:enabled="false"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             app:cornerRadius="18dp"
-            app:icon="@drawable/ic_stop" />
+            app:icon="@drawable/ic_stop"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="20dp" />
     </LinearLayout>
 
     <TextView

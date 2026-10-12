@@ -147,7 +147,12 @@ class PlaybackService : Service() {
                 if (id != null && VideoId.isValid(id)) playVideo(id) else stopPlayback()
             }
             ACTION_TOGGLE -> postJs("toggle")
-            ACTION_TOGGLE_LOOP -> toggleLoop()
+            ACTION_TOGGLE_LOOP -> {
+                toggleLoop()
+                // Nothing playing (e.g. toggled from outside the notification):
+                // keep the preference and don't linger as an empty foreground service.
+                if (videoId == null) stopPlayback()
+            }
             ACTION_STOP -> stopPlayback()
             else -> if (videoId == null) stopPlayback()
         }
